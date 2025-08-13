@@ -1,0 +1,274 @@
+
+[2025-08-13 09:10:18]
+📜 Executing Code:
+import pandas as pd
+import os
+import io
+import s3fs
+import pyarrow
+
+# Define the output directory
+output_dir = "uploads/75c643ba-923f-473b-b566-210d7f249e4d"
+os.makedirs(output_dir, exist_ok=True)
+
+# S3 bucket path pattern as given in the DuckDB query
+s3_path_pattern = "s3://indian-high-court-judgments/metadata/parquet/year=*/court=*/bench=*/metadata.parquet"
+
+# Read data from S3 using pandas.read_parquet
+# pandas internally uses fsspec to handle S3 paths and glob patterns
+# The storage_options dictionary is passed directly to fsspec for S3 configuration
+try:
+    df = pd.read_parquet(
+        s3_path_pattern,
+        storage_options={"client_kwargs": {"region_name": "ap-south-1"}},
+    )
+except Exception as e:
+    # In case of an error (e.g., S3 access denied, no files found, network issue),
+    # create an empty DataFrame to allow metadata collection to proceed without crashing.
+    print(f"Error reading Parquet from S3: {e}")
+    # Define columns based on the provided schema to ensure consistency for metadata.txt
+    columns = [
+        "court_code",
+        "title",
+        "description",
+        "judge",
+        "pdf_link",
+        "cnr",
+        "date_of_registration",
+        "decision_date",
+        "disposal_nature",
+        "court",
+        "raw_html",
+        "bench",
+        "year",
+    ]
+    df = pd.DataFrame(columns=columns)
+
+
+# Save the DataFrame to CSV
+data_csv_path = os.path.join(output_dir, "data.csv")
+df.to_csv(data_csv_path, index=False)
+
+# Collect metadata
+metadata_txt_path = os.path.join(output_dir, "metadata.txt")
+with open(metadata_txt_path, "w") as f:
+    f.write("--- DataFrame Info ---\n")
+    # Redirect df.info() output to a string buffer and write to file
+    buf = io.StringIO()
+    df.info(buf=buf)
+    f.write(buf.getvalue())
+    f.write("\n\n--- DataFrame Columns ---\n")
+    f.write(str(df.columns.tolist()))
+    f.write("\n\n--- DataFrame Head ---\n")
+    f.write(df.head().to_string())
+    f.write("\n\n--- Data CSV Path ---\n")
+    f.write(f"Path: {data_csv_path}\n")
+    f.write("Description: Scraped judicial judgment metadata from S3 bucket.\n")
+    f.write("\n\n--- Original Questions JSON Format (for reference) ---\n")
+    f.write(
+        """{
+  "Which high court disposed the most cases from 2019 - 2022?": "...",
+  "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?": "...",
+  "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters": "data:image/webp:base64,..."
+}"""
+    )
+
+----------------------------------------
+
+[2025-08-13 09:10:18]
+✅ Code executed successfully after installing libraries.
+----------------------------------------
+
+[2025-08-13 09:11:47]
+📜 Executing Code:
+import pandas as pd
+import json
+import base64
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.stats import linregress
+import io
+
+# Define the path to the CSV file and output JSON
+csv_file_path = "uploads/75c643ba-923f-473b-b566-210d7f249e4d/data.csv"
+output_json_path = "uploads/75c643ba-923f-473b-b566-210d7f249e4d/result.json"
+
+results = {}
+
+try:
+    df = pd.read_csv(csv_file_path)
+
+    if df.empty:
+        results["Which high court disposed the most cases from 2019 - 2022?"] = (
+            "No data available."
+        )
+        results[
+            "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?"
+        ] = "No data available."
+        results[
+            "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters"
+        ] = "No data available for plotting."
+    else:
+        # --- Question 1: Which high court disposed the most cases from 2019 - 2022? ---
+        # Ensure 'year' column is numeric, coercing errors to NaN
+        df["year"] = pd.to_numeric(df["year"], errors="coerce")
+        # Filter for years 2019-2022 and non-null 'year'
+        df_q1 = df[(df["year"] >= 2019) & (df["year"] <= 2022) & df["year"].notna()]
+
+        if not df_q1.empty:
+            # Group by court and count cases
+            court_disposals = df_q1["court"].value_counts()
+            if not court_disposals.empty:
+                most_disposed_court = court_disposals.idxmax()
+                results[
+                    "Which high court disposed the most cases from 2019 - 2022?"
+                ] = most_disposed_court
+            else:
+                results[
+                    "Which high court disposed the most cases from 2019 - 2022?"
+                ] = "No cases disposed in 2019-2022."
+        else:
+            results["Which high court disposed the most cases from 2019 - 2022?"] = (
+                "No data for years 2019-2022."
+            )
+
+        # --- Question 2 & 3: Regression slope and plot for court=33_10 ---
+        df_court_33_10 = df[df["court"] == "33_10"].copy()
+
+        if not df_court_33_10.empty:
+            # Convert date columns to datetime objects
+            df_court_33_10["date_of_registration"] = pd.to_datetime(
+                df_court_33_10["date_of_registration"], errors="coerce"
+            )
+            df_court_33_10["decision_date"] = pd.to_datetime(
+                df_court_33_10["decision_date"], errors="coerce"
+            )
+
+            # Drop rows where date conversion failed for either column
+            df_court_33_10.dropna(
+                subset=["date_of_registration", "decision_date"], inplace=True
+            )
+
+            if not df_court_33_10.empty:
+                # Calculate delay in days
+                df_court_33_10["delay_days"] = (
+                    df_court_33_10["decision_date"]
+                    - df_court_33_10["date_of_registration"]
+                ).dt.days
+                # Extract year of registration
+                df_court_33_10["year_of_reg"] = df_court_33_10[
+                    "date_of_registration"
+                ].dt.year
+
+                # Filter out negative delays and ensure year_of_reg is not NaN
+                df_court_33_10 = df_court_33_10[
+                    (df_court_33_10["delay_days"] >= 0)
+                    & (df_court_33_10["year_of_reg"].notna())
+                ]
+
+                # Check if there is enough data for regression and plotting
+                if (
+                    not df_court_33_10.empty
+                    and len(df_court_33_10["year_of_reg"].unique()) > 1
+                    and len(df_court_33_10["delay_days"].unique()) > 1
+                ):
+                    # Calculate regression slope for Question 2
+                    slope, intercept, r_value, p_value, std_err = linregress(
+                        df_court_33_10["year_of_reg"], df_court_33_10["delay_days"]
+                    )
+                    results[
+                        "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?"
+                    ] = slope
+
+                    # Create plot for Question 3
+                    plt.figure(figsize=(10, 6))
+                    sns.scatterplot(
+                        x="year_of_reg", y="delay_days", data=df_court_33_10, alpha=0.6
+                    )
+                    sns.regplot(
+                        x="year_of_reg",
+                        y="delay_days",
+                        data=df_court_33_10,
+                        scatter=False,
+                        color="red",
+                        line_kws={"linestyle": "--", "alpha": 0.7},
+                    )
+                    plt.title("Delay in Days vs. Year for Court = 33_10")
+                    plt.xlabel("Year of Registration")
+                    plt.ylabel("Delay in Days")
+                    plt.grid(True, linestyle="--", alpha=0.6)
+
+                    # Save plot to a bytes buffer
+                    buffer = io.BytesIO()
+                    plt.savefig(
+                        buffer, format="png", bbox_inches="tight", dpi=100
+                    )  # dpi=100 to keep size low
+                    buffer.seek(0)
+                    plt.close()  # Close the plot to free memory
+
+                    # Encode to base64
+                    plot_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+                    # Check size and add to results
+                    if len(plot_base64) < 100000:
+                        results[
+                            "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters"
+                        ] = f"data:image/png;base64,{plot_base64}"
+                    else:
+                        results[
+                            "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters"
+                        ] = "Plot too large to encode under 100,000 characters."
+                else:
+                    results[
+                        "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?"
+                    ] = "Not enough data points with variation in year or delay to calculate regression slope for court=33_10."
+                    results[
+                        "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters"
+                    ] = "Not enough data points to plot regression for court=33_10."
+            else:
+                results[
+                    "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?"
+                ] = "No valid date data (date_of_registration or decision_date) for court=33_10."
+                results[
+                    "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters"
+                ] = "No valid date data (date_of_registration or decision_date) for court=33_10."
+        else:
+            results[
+                "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?"
+            ] = "No data found for court=33_10."
+            results[
+                "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters"
+            ] = "No data found for court=33_10."
+
+except FileNotFoundError:
+    results["Which high court disposed the most cases from 2019 - 2022?"] = (
+        "CSV file not found at the specified path."
+    )
+    results[
+        "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?"
+    ] = "CSV file not found at the specified path."
+    results[
+        "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters"
+    ] = "CSV file not found at the specified path."
+except Exception as e:
+    # Catch other potential errors during processing
+    error_message = f"An error occurred during data processing: {str(e)}"
+    results["Which high court disposed the most cases from 2019 - 2022?"] = (
+        error_message
+    )
+    results[
+        "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?"
+    ] = error_message
+    results[
+        "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters"
+    ] = error_message
+
+# Save the results to a JSON file
+with open(output_json_path, "w") as f:
+    json.dump(results, f, indent=4)
+
+----------------------------------------
+
+[2025-08-13 09:11:49]
+✅ Code executed successfully after installing libraries.
+----------------------------------------

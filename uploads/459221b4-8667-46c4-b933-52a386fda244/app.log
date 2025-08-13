@@ -1,0 +1,16 @@
+2025-08-13 09:20:06,445 [INFO] Step-1: Folder created: uploads/459221b4-8667-46c4-b933-52a386fda244
+2025-08-13 09:20:06,453 [INFO] Step-2: File sent {'question.txt': 'uploads/459221b4-8667-46c4-b933-52a386fda244/question.txt'}
+2025-08-13 09:20:06,454 [INFO] Step-3: Getting scrap code and metadata from llm. Tries count = 0
+2025-08-13 09:20:25,975 [ERROR] Step-3: Error in parsing the result. with a regression line. Encode as a base64 data URI under 100,000 characters": "data:image/webp:base64,..." } ``` Expecting ',' delimiter: line 2 column 3125 (char 3126)
+2025-08-13 09:20:25,975 [INFO] Step-3: Getting scrap code and metadata from llm. Tries count = 1
+2025-08-13 09:20:45,548 [INFO] Step-3: Response from scrapping: regression line. Encode as a base64 data URI under 100,000 characters'], 'comment': 'Step-3: Getting scrap code and metadata from llm. Tries count = %d 1'}
+2025-08-13 09:20:50,872 [INFO] Step-4: Execution result of the scrape code: ✅ Code executed successfully after installing libraries.
+2025-08-13 09:20:50,872 [INFO] Step-5: Getting execution code from llm. Tries count = 0
+2025-08-13 09:21:23,551 [INFO] Step-5: Response from llm: "question_3_answer": { "plot_base64_uri": plot_data_uri } } # Save the result to a JSON file output_file_path = "uploads/459221b4-8667-46c4-b933-52a386fda244/result.json" with open(output_file_path, 'w') as f: json.dump(result, f, indent=4)
+2025-08-13 09:21:23,551 [INFO] Step-6: Executing final code. Tries count = 0
+2025-08-13 09:21:30,849 [INFO] Step-6: Executing final code result: 48, in run_python_code execute_code() File "/home/venisha/TDS_project2/task_engine.py", line 26, in execute_code exec(code, exec_globals) File "<string>", line 32, in <module> AttributeError: 'DatetimeIndex' object has no attribute 'dt'
+2025-08-13 09:21:30,849 [ERROR] Step-6: Error occured while executing code. Tries count = 2
+2025-08-13 09:21:30,849 [INFO] Step-5: Getting execution code from llm. Tries count = 1
+2025-08-13 09:22:11,178 [INFO] Step-5: Response from llm: # --- Save results to JSON file --- output_dir = "uploads/459221b4-8667-46c4-b933-52a386fda244" os.makedirs(output_dir, exist_ok=True) output_file_path = os.path.join(output_dir, "result.json") with open(output_file_path, 'w') as f: json.dump(results, f, indent=4)
+2025-08-13 09:22:17,470 [INFO] Step-6: Executing final code result: ✅ Code executed successfully after installing libraries.
+2025-08-13 09:22:17,471 [INFO] Step-7: send result back

@@ -1,0 +1,14 @@
+{
+    "code": "import pandas as pd\nimport os\nimport io\nimport s3fs\n\noutput_dir = \"uploads/459221b4-8667-46c4-b933-52a386fda244\"\nos.makedirs(output_dir, exist_ok=True)\n\ns3_path = \"s3://indian-high-court-judgments/metadata/parquet/year=*/court=*/bench=*/metadata.parquet\"\ns3_region = \"ap-south-1\"\n\ntry:\n    df = pd.read_parquet(s3_path, storage_options={'anon': True, 'client_kwargs': {'region_name': s3_region}})\n\n    df['date_of_registration'] = pd.to_datetime(df['date_of_registration'], errors='coerce')\n    df['decision_date'] = pd.to_datetime(df['decision_date'], errors='coerce')\n\n    csv_file_path = os.path.join(output_dir, \"data.csv\")\n    df.to_csv(csv_file_path, index=False)\n\n    metadata_file_path = os.path.join(output_dir, \"metadata.txt\")\n    with open(metadata_file_path, \"w\") as f:\n        f.write(\"--- DataFrame Info ---\\n\")\n        buffer = io.StringIO()\n        df.info(buf=buffer)\n        f.write(buffer.getvalue())\n        f.write(\"\\n\\n--- DataFrame Columns ---\\n\")\n        f.write(str(df.columns.tolist()))\n        f.write(\"\\n\\n--- DataFrame Head ---\\n\")\n        f.write(df.head().to_string())\n        f.write(\"\\n\\n--- Expected JSON Answer Format ---\\n\")\n        f.write(\"\"\"{  \\n  \\\"Which high court disposed the most cases from 2019 - 2022?\\\": \\\"...\\\",\\n  \\\"What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?\\\": \\\"...\\\",\\n  \\\"Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters\\\": \\\"data:image/webp:base64,...\\\"\\n}\"\"\")\n        f.write(f\"\\n\\n--- File Descriptions ---\\n\")\n        f.write(f\"{csv_file_path}: Contains the scraped Indian High Court Judgments metadata from S3, including details like court code, title, judge, dates, and disposal nature.\\n\")\nexcept Exception as e:\n    pass\n",
+    "libraries": [
+        "pandas",
+        "s3fs",
+        "pyarrow"
+    ],
+    "questions": [
+        "Which high court disposed the most cases from 2019 - 2022?",
+        "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?",
+        "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters"
+    ],
+    "comment": "Step-3: Getting scrap code and metadata from llm. Tries count = %d 1"
+}

@@ -1,0 +1,338 @@
+
+[2025-08-13 09:24:17]
+📜 Executing Code:
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import os
+
+output_dir = "uploads/29f6aef6-9c01-4ff8-a545-357d63c597e3"
+os.makedirs(output_dir, exist_ok=True)
+
+url = "https://en.wikipedia.org/wiki/List_of_highest-grossing_films"
+response = requests.get(url)
+response.raise_for_status()
+
+soup = BeautifulSoup(response.text, "html.parser")
+
+tables = soup.find_all("table", {"class": "wikitable sortable"})
+
+data = []
+headers = []
+
+# Assuming the first table is the main one for highest-grossing films
+if tables:
+    table = tables[0]
+    # Extract headers
+    header_row = table.find("tr")
+    if header_row:
+        headers = [th.get_text(strip=True) for th in header_row.find_all("th")]
+
+    # Extract rows
+    for row in table.find_all("tr")[1:]:
+        cells = row.find_all(["td", "th"])
+        row_data = [cell.get_text(strip=True) for cell in cells]
+        data.append(row_data)
+
+df = pd.DataFrame(data, columns=headers)
+
+# Clean column names
+df.columns = df.columns.str.replace(r"\[.*?\]", "", regex=True).str.strip()
+df.columns = df.columns.str.replace(r"\n", "", regex=True).str.strip()
+
+# Rename columns for easier access, if necessary, based on expected data (Rank, Peak, Worldwide gross, Year)
+df.rename(
+    columns={
+        "Rank": "Rank",
+        "Worldwide gross": "Worldwide_gross",
+        "Year": "Year",
+        "Peak": "Peak",
+    },
+    inplace=True,
+)
+
+# Drop rows where 'Worldwide_gross' is empty or doesn't look like a number, or if it's a 'Notes' row
+df = df[df["Worldwide_gross"].str.contains("$", na=False)]
+
+df["Worldwide_gross"] = (
+    df["Worldwide_gross"]
+    .replace(
+        {r"\$": "", r"\,": "", r"billion": "000000000", r"million": "000000"},
+        regex=True,
+    )
+    .astype(float)
+)
+
+# Convert Year to integer, handling potential errors if year is not clean
+df["Year"] = pd.to_numeric(df["Year"], errors="coerce")
+df.dropna(subset=["Year"], inplace=True)
+df["Year"] = df["Year"].astype(int)
+
+# Convert Rank and Peak to numeric, coercing errors to NaN
+df["Rank"] = pd.to_numeric(df["Rank"], errors="coerce")
+df["Peak"] = pd.to_numeric(df["Peak"], errors="coerce")
+
+df.to_csv(os.path.join(output_dir, "data.csv"), index=False)
+
+# Generate metadata
+with open(os.path.join(output_dir, "metadata.txt"), "w") as f:
+    f.write("Scraped Data from Wikipedia - List of Highest-Grossing Films\n\n")
+    f.write("File: data.csv\n")
+    f.write(
+        "Description: Contains a table of highest-grossing films with columns like Rank, Worldwide gross, Year, Peak, etc.\n\n"
+    )
+    f.write("DataFrame Info:\n")
+    df.info(buf=f)
+    f.write("\n\nDataFrame Columns:\n")
+    f.write(str(df.columns.tolist()))
+    f.write("\n\nDataFrame Head:\n")
+    f.write(df.head().to_string())
+    f.write("\n\nExpected JSON Answer Format:\n")
+    f.write('["Answer to Q1", "Answer to Q2", "data:image/png;base64,..."]\n')
+
+----------------------------------------
+
+[2025-08-13 09:24:18]
+❌ Error during code execution:
+Traceback (most recent call last):
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/core/indexes/base.py", line 3812, in get_loc
+    return self._engine.get_loc(casted_key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "pandas/_libs/index.pyx", line 167, in pandas._libs.index.IndexEngine.get_loc
+  File "pandas/_libs/index.pyx", line 196, in pandas._libs.index.IndexEngine.get_loc
+  File "pandas/_libs/hashtable_class_helper.pxi", line 7088, in pandas._libs.hashtable.PyObjectHashTable.get_item
+  File "pandas/_libs/hashtable_class_helper.pxi", line 7096, in pandas._libs.hashtable.PyObjectHashTable.get_item
+KeyError: 'Worldwide_gross'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/venisha/TDS_project2/task_engine.py", line 48, in run_python_code
+    execute_code()
+  File "/home/venisha/TDS_project2/task_engine.py", line 26, in execute_code
+    exec(code, exec_globals)
+  File "<string>", line 44, in <module>
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/core/frame.py", line 4107, in __getitem__
+    indexer = self.columns.get_loc(key)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/core/indexes/base.py", line 3819, in get_loc
+    raise KeyError(key) from err
+KeyError: 'Worldwide_gross'
+
+----------------------------------------
+
+[2025-08-13 09:25:04]
+📜 Executing Code:
+import requests
+import pandas as pd
+import os
+import io
+import re
+
+# Define paths
+output_dir = "uploads/29f6aef6-9c01-4ff8-a545-357d63c597e3"
+data_path = os.path.join(output_dir, "data.csv")
+metadata_path = os.path.join(output_dir, "metadata.txt")
+
+# Create directory if it doesn't exist
+os.makedirs(output_dir, exist_ok=True)
+
+# Scrape the data
+url = "https://en.wikipedia.org/wiki/List_of_highest-grossing_films"
+
+# Use pd.read_html to directly parse tables from the URL
+tables = pd.read_html(url)
+
+# Identify the correct table. The table for highest-grossing films typically has 'Rank', 'Title', 'Worldwide gross', 'Year'.
+df = None
+for table in tables:
+    # Check if 'Worldwide gross' is in any of the column headers (case-insensitive, ignoring variations)
+    normalized_cols = [
+        re.sub(r"\[.*?\]", "", str(col)).strip().lower() for col in table.columns
+    ]
+    if "worldwide gross" in normalized_cols:
+        df = table
+        break
+
+if df is None:
+    raise ValueError("Could not find the table containing 'Worldwide gross' column.")
+
+# Clean up column names generally
+# Remove reference notes (e.g., [A]), strip whitespace, and replace spaces with underscores.
+df.columns = [
+    re.sub(r"\[.*?\]", "", str(col)).strip().replace(" ", "_").replace(".", "")
+    for col in df.columns
+]
+
+# Clean and convert 'Worldwide_gross' to numeric
+if "Worldwide_gross" in df.columns:
+    # Remove '$' and commas, then convert to float
+    df["Worldwide_gross"] = (
+        df["Worldwide_gross"]
+        .astype(str)
+        .str.replace("$", "", regex=False)
+        .str.replace(",", "", regex=False)
+    )
+    # Handle potential non-numeric values after cleaning
+    df["Worldwide_gross"] = pd.to_numeric(df["Worldwide_gross"], errors="coerce")
+    # Drop rows where Worldwide_gross became NaN after conversion, as they are not valid film entries for analysis
+    df.dropna(subset=["Worldwide_gross"], inplace=True)
+else:
+    raise KeyError(
+        "The 'Worldwide_gross' column could not be found or processed correctly after scraping and cleaning."
+    )
+
+# Clean and convert 'Year' to numeric
+if "Year" in df.columns:
+    # Extract four digits that represent the year
+    df["Year"] = df["Year"].astype(str).str.extract(r"(\d{4})")[0]
+    df["Year"] = pd.to_numeric(df["Year"], errors="coerce")
+    df.dropna(subset=["Year"], inplace=True)
+    df["Year"] = df["Year"].astype(int)
+else:
+    raise KeyError(
+        "The 'Year' column could not be found or processed correctly after scraping and cleaning."
+    )
+
+# Clean and convert 'Rank' and 'Peak' to numeric
+for col_name in ["Rank", "Peak"]:
+    if col_name in df.columns:
+        df[col_name] = (
+            df[col_name].astype(str).str.extract(r"(\d+)")[0]
+        )  # Extract digits
+        df[col_name] = pd.to_numeric(df[col_name], errors="coerce")
+        df.dropna(subset=[col_name], inplace=True)
+        df[col_name] = df[col_name].astype(int)
+
+# Ensure 'Title' column exists as it's needed for one of the questions
+if "Title" not in df.columns:
+    raise KeyError("The 'Title' column was not found after scraping and cleaning.")
+
+# Save the cleaned DataFrame to CSV
+df.to_csv(data_path, index=False)
+
+# Generate metadata
+metadata_content = io.StringIO()
+metadata_content.write(f"--- Metadata for scraped data ---\n\n")
+metadata_content.write(f"Source URL: {url}\n\n")
+metadata_content.write(f"Data saved to: {data_path}\n\n")
+metadata_content.write(
+    f"Description: This CSV file contains a list of highest-grossing films scraped from Wikipedia, including Rank, Peak, Title, Worldwide gross, and Year. Columns have been cleaned and converted to appropriate data types for analysis.\n\n"
+)
+
+metadata_content.write(f"DataFrame Info:\n")
+df.info(buf=metadata_content)
+metadata_content.write(f"\n")
+
+metadata_content.write(f"DataFrame Columns:\n")
+metadata_content.write(str(df.columns.tolist()) + "\n\n")
+
+metadata_content.write(f"DataFrame Head (first 5 rows):\n")
+metadata_content.write(df.head().to_string() + "\n\n")
+
+metadata_content.write(f"Expected JSON answer format for the questions:\n")
+metadata_content.write(
+    r"""[
+  {
+    "question": "How many $2 bn movies were released before 2000?",
+    "answer": "integer"
+  },
+  {
+    "question": "Which is the earliest film that grossed over $1.5 bn?",
+    "answer": "string (film title)"
+  },
+  {
+    "question": "What's the correlation between the Rank and Peak?",
+    "answer": "float"
+  },
+  {
+    "question": "Draw a scatterplot of Rank and Peak along with a dotted red regression line through it.",
+    "answer": "data:image/png;base64,iVBORw0KG..."
+  }
+]"""
+)
+
+with open(metadata_path, "w") as f:
+    f.write(metadata_content.getvalue())
+
+----------------------------------------
+
+[2025-08-13 09:25:05]
+✅ Code executed successfully after installing libraries.
+----------------------------------------
+
+[2025-08-13 09:25:23]
+📜 Executing Code:
+import pandas as pd
+import json
+import matplotlib.pyplot as plt
+import seaborn as sns
+import io
+import base64
+import os
+
+# Define the output directory and ensure it exists
+output_dir = "uploads/29f6aef6-9c01-4ff8-a545-357d63c597e3"
+os.makedirs(output_dir, exist_ok=True)
+
+# Load the data
+df = pd.read_csv(os.path.join(output_dir, "data.csv"))
+
+# Question 1: How many $2 bn movies were released before 2000?
+movies_2bn_before_2000 = df[
+    (df["Worldwide_gross"] > 2_000_000_000) & (df["Year"] < 2000)
+]
+q1_answer = len(movies_2bn_before_2000)
+
+# Question 2: Which is the earliest film that grossed over $1.5 bn?
+movies_over_1_5bn = df[df["Worldwide_gross"] > 1_500_000_000].sort_values(
+    by="Year", ascending=True
+)
+q2_answer = movies_over_1_5bn.iloc[0]["Title"] if not movies_over_1_5bn.empty else None
+
+# Question 3: What's the correlation between the Rank and Peak?
+q3_answer = df["Rank"].corr(df["Peak"])
+
+# Question 4: Draw a scatterplot of Rank and Peak along with a dotted red regression line through it.
+plt.figure(figsize=(10, 6))
+sns.regplot(x="Rank", y="Peak", data=df, line_kws={"color": "red", "linestyle": ":"})
+plt.title("Scatterplot of Rank vs Peak with Regression Line")
+plt.xlabel("Rank")
+plt.ylabel("Peak")
+
+buf = io.BytesIO()
+plt.savefig(buf, format="png")
+plt.close()
+q4_answer_base64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+q4_answer_image_data = f"data:image/png;base64,{q4_answer_base64}"
+
+# Prepare the results in the specified JSON format
+results = [
+    {
+        "question": "How many $2 bn movies were released before 2000?",
+        "answer": q1_answer,
+    },
+    {
+        "question": "Which is the earliest film that grossed over $1.5 bn?",
+        "answer": q2_answer,
+    },
+    {
+        "question": "What's the correlation between the Rank and Peak?",
+        "answer": q3_answer,
+    },
+    {
+        "question": "Draw a scatterplot of Rank and Peak along with a dotted red regression line through it.",
+        "answer": q4_answer_image_data,
+    },
+]
+
+# Save the results to a JSON file
+output_file_path = os.path.join(output_dir, "result.json")
+with open(output_file_path, "w") as f:
+    json.dump(results, f, indent=2)
+
+----------------------------------------
+
+[2025-08-13 09:25:23]
+✅ Code executed successfully after installing libraries.
+----------------------------------------

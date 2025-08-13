@@ -1,0 +1,13 @@
+2025-08-13 09:24:05,663 [INFO] Step-1: Folder created: uploads/29f6aef6-9c01-4ff8-a545-357d63c597e3
+2025-08-13 09:24:05,665 [INFO] Step-2: File sent {'question1.txt': 'uploads/29f6aef6-9c01-4ff8-a545-357d63c597e3/question1.txt'}
+2025-08-13 09:24:05,665 [INFO] Step-3: Getting scrap code and metadata from llm. Tries count = 0
+2025-08-13 09:24:13,492 [INFO] Step-3: Response from scrapping: and Peak along with a dotted red regression line through it.'], 'comment': 'Step-3: Getting scrap code and metadata from llm. Tries count = %d 0'}
+2025-08-13 09:24:18,384 [INFO] Step-4: Execution result of the scrape code: 44, in <module> File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/core/frame.py", line 4107, in __getitem__ indexer = self.columns.get_loc(key) ^^^^^^^^^^^^^^^^^^^^^^^^^ File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/core/indexes/base.py", line 3819, in get_loc raise KeyError(key) from err KeyError: 'Worldwide_gross'
+2025-08-13 09:24:18,385 [ERROR] Step-4: Error occured while scrapping. Tries count = 0
+2025-08-13 09:25:01,765 [INFO] Step-3: Response from scrapping: scatterplot of Rank and Peak along with a dotted red regression line through it.'], 'comment': 'Step-4: Error occured while scrapping. Tries count = %d, 0'}
+2025-08-13 09:25:05,124 [INFO] Step-4: Execution result of the scrape code: ✅ Code executed successfully after installing libraries.
+2025-08-13 09:25:05,124 [INFO] Step-5: Getting execution code from llm. Tries count = 0
+2025-08-13 09:25:19,395 [INFO] Step-5: Response from llm: it.", "answer": q4_answer_image_data } ] # Save the results to a JSON file output_file_path = os.path.join(output_dir, "result.json") with open(output_file_path, 'w') as f: json.dump(results, f, indent=2)
+2025-08-13 09:25:19,395 [INFO] Step-6: Executing final code. Tries count = 0
+2025-08-13 09:25:23,207 [INFO] Step-6: Executing final code result: ✅ Code executed successfully after installing libraries.
+2025-08-13 09:25:23,208 [INFO] Step-7: send result back

@@ -1,0 +1,17 @@
+2025-08-13 09:06:13,905 [INFO] Step-1: Folder created: uploads/9aa18181-2c17-4945-b07c-a4c2bf647728
+2025-08-13 09:06:13,916 [INFO] Step-2: File sent {'question.txt': 'uploads/9aa18181-2c17-4945-b07c-a4c2bf647728/question.txt'}
+2025-08-13 09:06:13,916 [INFO] Step-3: Getting scrap code and metadata from llm. Tries count = 0
+2025-08-13 09:06:52,676 [ERROR] Step-3: Error in parsing the result. scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters": "data:image/webp:base64,..." } ``` Invalid \escape: line 2 column 2911 (char 2912)
+2025-08-13 09:06:52,676 [INFO] Step-3: Getting scrap code and metadata from llm. Tries count = 1
+2025-08-13 09:07:26,835 [INFO] Step-3: Response from scrapping: regression line. Encode as a base64 data URI under 100,000 characters'], 'comment': 'Step-3: Getting scrap code and metadata from llm. Tries count = %d 1'}
+2025-08-13 09:08:00,783 [INFO] Step-4: Execution result of the scrape code: Use pip or conda to install pyarrow. - Missing optional dependency 'fastparquet'. fastparquet is required for parquet support. Use pip or conda to install fastparquet.
+2025-08-13 09:08:00,783 [ERROR] Step-4: Error occured while scrapping. Tries count = 0
+2025-08-13 09:08:31,860 [INFO] Step-3: Response from scrapping: scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters'], 'comment': 'Step-4: Error occured while scrapping. Tries count = %d, 0'}
+2025-08-13 09:09:11,855 [INFO] Step-4: Execution result of the scrape code: line 166, in patch_pyarrow pyarrow.unregister_extension_type("arrow.py_extension_type") File "pyarrow/types.pxi", line 2280, in pyarrow.lib.unregister_extension_type File "pyarrow/error.pxi", line 92, in pyarrow.lib.check_status pyarrow.lib.ArrowKeyError: No type extension with name arrow.py_extension_type found
+2025-08-13 09:09:11,856 [ERROR] Step-4: Error occured while scrapping. Tries count = 1
+2025-08-13 09:09:38,977 [INFO] Step-3: Response from scrapping: scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters'], 'comment': 'Step-4: Error occured while scrapping. Tries count = %d, 1'}
+2025-08-13 09:09:40,814 [INFO] Step-4: Execution result of the scrape code: 59, in <module> pyarrow.register_extension_type(_period_type) File "pyarrow/types.pxi", line 2226, in pyarrow.lib.register_extension_type File "pyarrow/error.pxi", line 92, in pyarrow.lib.check_status pyarrow.lib.ArrowKeyError: A type extension with name pandas.period already defined
+2025-08-13 09:09:40,814 [ERROR] Step-4: Error occured while scrapping. Tries count = 2
+2025-08-13 09:09:50,020 [INFO] Step-3: Response from scrapping: scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters'], 'comment': 'Step-4: Error occured while scrapping. Tries count = %d, 2'}
+2025-08-13 09:09:52,486 [INFO] Step-4: Execution result of the scrape code: 59, in <module> pyarrow.register_extension_type(_period_type) File "pyarrow/types.pxi", line 2226, in pyarrow.lib.register_extension_type File "pyarrow/error.pxi", line 92, in pyarrow.lib.check_status pyarrow.lib.ArrowKeyError: A type extension with name pandas.period already defined
+2025-08-13 09:09:52,486 [ERROR] error occured while scrapping.

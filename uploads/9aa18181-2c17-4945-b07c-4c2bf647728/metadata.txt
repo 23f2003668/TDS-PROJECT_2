@@ -1,0 +1,1 @@
+Error during data collection: A type extension with name pandas.period already defined

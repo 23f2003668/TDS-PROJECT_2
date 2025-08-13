@@ -1,0 +1,361 @@
+
+[2025-08-13 09:08:00]
+📜 Executing Code:
+import pandas as pd
+import os
+import io
+
+# Define the upload directory
+upload_dir = "uploads/9aa18181-2c17-4945-b07c-a4c2bf647728"
+os.makedirs(upload_dir, exist_ok=True)
+
+# S3 path for the parquet files
+s3_path = "s3://indian-high-court-judgments/metadata/parquet/year=*/court=*/bench=*/metadata.parquet"
+
+# Required columns for the analysis
+required_columns = ["court", "year", "date_of_registration", "decision_date"]
+
+# Read the parquet files from S3
+# Using 'anon': True for anonymous S3 access as it's a public bucket.
+# Specifying region_name for faster access.
+df = pd.read_parquet(
+    s3_path,
+    columns=required_columns,
+    storage_options={"anon": True, "client_kwargs": {"region_name": "ap-south-1"}},
+)
+
+# Store the collected data to a CSV file
+output_csv_path = os.path.join(upload_dir, "data.csv")
+df.to_csv(output_csv_path, index=False)
+
+# Collect metadata about the DataFrame
+metadata_path = os.path.join(upload_dir, "metadata.txt")
+
+with open(metadata_path, "w") as f:
+    f.write("--- Data Description ---\n")
+    f.write(f"File path: {output_csv_path}\n")
+    f.write(
+        "Description: This CSV file contains a subset of columns (court, year, date_of_registration, decision_date) from the Indian High Court Judgments dataset, scraped from public S3 parquet files.\n\n"
+    )
+
+    f.write("--- DataFrame Info ---\n")
+    # Redirect df.info() to a string
+    buf = io.StringIO()
+    df.info(buf=buf)
+    f.write(buf.getvalue())
+    f.write("\n")
+
+    f.write("--- DataFrame Columns ---\n")
+    f.write(str(df.columns.tolist()))
+    f.write("\n\n")
+
+    f.write("--- DataFrame Head ---\n")
+    f.write(df.head().to_string())
+    f.write("\n\n")
+
+    f.write("--- Original JSON Answer Format ---\n")
+    f.write("{\n")
+    f.write('  "Which high court disposed the most cases from 2019 - 2022?": "...",\n')
+    f.write(
+        '  "What\'s the regression slope of the date_of_registration - decision_date by year in the court=33_10?": "...",\n'
+    )
+    f.write(
+        '  "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters": "data:image/webp:base64,..."\n'
+    )
+    f.write("}\n")
+
+----------------------------------------
+
+[2025-08-13 09:08:00]
+❌ Error during code execution:
+Traceback (most recent call last):
+  File "/home/venisha/TDS_project2/task_engine.py", line 48, in run_python_code
+    execute_code()
+  File "/home/venisha/TDS_project2/task_engine.py", line 26, in execute_code
+    exec(code, exec_globals)
+  File "<string>", line 18, in <module>
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/io/parquet.py", line 653, in read_parquet
+    impl = get_engine(engine)
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/io/parquet.py", line 68, in get_engine
+    raise ImportError(
+ImportError: Unable to find a usable engine; tried using: 'pyarrow', 'fastparquet'.
+A suitable version of pyarrow or fastparquet is required for parquet support.
+Trying to import the above resulted in these errors:
+ - Missing optional dependency 'pyarrow'. pyarrow is required for parquet support. Use pip or conda to install pyarrow.
+ - Missing optional dependency 'fastparquet'. fastparquet is required for parquet support. Use pip or conda to install fastparquet.
+
+----------------------------------------
+
+[2025-08-13 09:08:55]
+📜 Executing Code:
+import pandas as pd
+import s3fs
+import os
+import io
+
+# Define the output directory
+output_dir = "uploads/9aa18181-2c17-4945-b07c-a4c2bf647728"
+os.makedirs(output_dir, exist_ok=True)
+
+# Initialize S3 filesystem
+# Use anon=True for public buckets and specify region_name as per DuckDB query
+fs = s3fs.S3FileSystem(anon=True, client_kwargs={"region_name": "ap-south-1"})
+
+s3_bucket = "indian-high-court-judgments"
+base_s3_parquet_path = f"{s3_bucket}/metadata/parquet/"
+
+all_parquet_s3_paths = []
+years_to_collect = range(2019, 2023)  # Includes 2019, 2020, 2021, 2022
+
+for year in years_to_collect:
+    # Glob for all 'metadata.parquet' files within the year's directory structure
+    # s3fs.glob returns paths relative to the bucket or full paths if specified with bucket name
+    year_glob_pattern = f"{base_s3_parquet_path}year={year}/*/*/metadata.parquet"
+    files_in_year = fs.glob(year_glob_pattern)
+
+    # Prepend 's3://' to the paths to make them readable by pandas.read_parquet
+    all_parquet_s3_paths.extend([f"s3://{f}" for f in files_in_year])
+
+# Define columns to load based on the questions to optimize memory usage
+columns_to_load = [
+    "court",
+    "disposal_nature",
+    "date_of_registration",
+    "decision_date",
+    "year",
+]
+
+df = pd.DataFrame()
+if all_parquet_s3_paths:
+    # Load the data from all identified parquet files in S3
+    # Pass storage_options to handle S3 authentication/configuration
+    df = pd.read_parquet(
+        all_parquet_s3_paths,
+        columns=columns_to_load,
+        storage_options={"anon": True, "client_kwargs": {"region_name": "ap-south-1"}},
+    )
+else:
+    print("No parquet files found for the specified years. DataFrame will be empty.")
+
+# Save the combined DataFrame to a CSV file
+output_csv_path = os.path.join(output_dir, "data.csv")
+df.to_csv(output_csv_path, index=False)
+
+# Collect metadata about the scraped data
+metadata_file_path = os.path.join(output_dir, "metadata.txt")
+with open(metadata_file_path, "w") as f:
+    f.write("--- DataFrame Info ---\n")
+    buffer = io.StringIO()
+    df.info(buf=buffer)
+    f.write(buffer.getvalue())
+    f.write("\n\n--- DataFrame Columns ---\n")
+    f.write(str(df.columns.tolist()))
+    f.write("\n\n--- DataFrame Head ---\n")
+    f.write(df.head().to_string())
+    f.write("\n\n--- Expected JSON Answer Format ---\n")
+    f.write(
+        """{
+  "Which high court disposed the most cases from 2019 - 2022?": "...",
+  "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?": "...",
+  "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters": "data:image/webp:base64,..."
+}"""
+    )
+
+----------------------------------------
+
+[2025-08-13 09:09:11]
+❌ Error during code execution:
+Traceback (most recent call last):
+  File "/home/venisha/TDS_project2/task_engine.py", line 48, in run_python_code
+    execute_code()
+  File "/home/venisha/TDS_project2/task_engine.py", line 26, in execute_code
+    exec(code, exec_globals)
+  File "<string>", line 42, in <module>
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/io/parquet.py", line 653, in read_parquet
+    impl = get_engine(engine)
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/io/parquet.py", line 64, in get_engine
+    return engine_class()
+           ^^^^^^^^^^^^^^
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/io/parquet.py", line 170, in __init__
+    import pandas.core.arrays.arrow.extension_types  # pyright: ignore[reportUnusedImport] # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/core/arrays/arrow/extension_types.py", line 174, in <module>
+    patch_pyarrow()
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/core/arrays/arrow/extension_types.py", line 166, in patch_pyarrow
+    pyarrow.unregister_extension_type("arrow.py_extension_type")
+  File "pyarrow/types.pxi", line 2280, in pyarrow.lib.unregister_extension_type
+  File "pyarrow/error.pxi", line 92, in pyarrow.lib.check_status
+pyarrow.lib.ArrowKeyError: No type extension with name arrow.py_extension_type found
+
+----------------------------------------
+
+[2025-08-13 09:09:40]
+📜 Executing Code:
+import pandas as pd
+import os
+import io
+
+output_folder = "uploads/9aa18181-2c17-4945-b07c-4c2bf647728"
+output_data_path = os.path.join(output_folder, "data.csv")
+metadata_path = os.path.join(output_folder, "metadata.txt")
+
+os.makedirs(output_folder, exist_ok=True)
+
+s3_base_path = "s3://indian-high-court-judgments/metadata/parquet/"
+years_to_consider = [2019, 2020, 2021, 2022]
+s3_paths = [
+    f"{s3_base_path}year={year}/court=*/bench=*/metadata.parquet"
+    for year in years_to_consider
+]
+storage_options = {"anon": True, "client_kwargs": {"region_name": "ap-south-1"}}
+
+columns_needed = ["court", "decision_date", "date_of_registration", "year"]
+
+try:
+    df = pd.read_parquet(
+        s3_paths, columns=columns_needed, storage_options=storage_options
+    )
+
+    df.to_csv(output_data_path, index=False)
+
+    with open(metadata_path, "w") as f:
+        f.write("--- File Description ---\n")
+        f.write(
+            f"This file contains high court judgment metadata for years {min(years_to_consider)}-{max(years_to_consider)}, collected from S3. \n"
+        )
+        f.write(f"The data is stored in '{output_data_path}'.\n\n")
+
+        f.write("--- DataFrame Info ---\n")
+        buffer = io.StringIO()
+        df.info(buf=buffer)
+        f.write(buffer.getvalue())
+        f.write("\n\n")
+
+        f.write("--- Columns ---\n")
+        f.write(str(df.columns.tolist()))
+        f.write("\n\n")
+
+        f.write("--- Head ---\n")
+        f.write(str(df.head()))
+        f.write("\n\n")
+
+        f.write("--- JSON Answer Format (Not filled by this script) ---\n")
+        f.write(
+            """{  "Which high court disposed the most cases from 2019 - 2022?": "...",  "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?": "...",  "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters": "data:image/webp:base64,..."}"""
+        )
+
+except Exception as e:
+    with open(metadata_path, "w") as f:
+        f.write(f"Error during data collection: {e}\n")
+    raise
+
+----------------------------------------
+
+[2025-08-13 09:09:40]
+❌ Error during code execution:
+Traceback (most recent call last):
+  File "/home/venisha/TDS_project2/task_engine.py", line 48, in run_python_code
+    execute_code()
+  File "/home/venisha/TDS_project2/task_engine.py", line 26, in execute_code
+    exec(code, exec_globals)
+  File "<string>", line 30, in <module>
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/io/parquet.py", line 653, in read_parquet
+    impl = get_engine(engine)
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/io/parquet.py", line 64, in get_engine
+    return engine_class()
+           ^^^^^^^^^^^^^^
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/io/parquet.py", line 170, in __init__
+    import pandas.core.arrays.arrow.extension_types  # pyright: ignore[reportUnusedImport] # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/core/arrays/arrow/extension_types.py", line 59, in <module>
+    pyarrow.register_extension_type(_period_type)
+  File "pyarrow/types.pxi", line 2226, in pyarrow.lib.register_extension_type
+  File "pyarrow/error.pxi", line 92, in pyarrow.lib.check_status
+pyarrow.lib.ArrowKeyError: A type extension with name pandas.period already defined
+
+----------------------------------------
+
+[2025-08-13 09:09:52]
+📜 Executing Code:
+import pandas as pd
+import os
+import s3fs
+import io
+
+# Define the output directory
+output_dir = "uploads/9aa18181-2c17-4945-b07c-4a2cbf647728"
+
+# Create the output directory if it doesn't exist
+os.makedirs(output_dir, exist_ok=True)
+
+# S3 path to the parquet files
+s3_path = "s3://indian-high-court-judgments/metadata/parquet/year=*/court=*/bench=*/metadata.parquet"
+
+# Read the parquet files from S3 into a pandas DataFrame
+# s3fs will be used automatically by pandas if installed
+df = pd.read_parquet(
+    s3_path,
+    storage_options={"anon": True, "client_kwargs": {"region_name": "ap-south-1"}},
+)
+
+# Define the path for the output CSV file
+csv_output_path = os.path.join(output_dir, "data.csv")
+
+# Save the DataFrame to a CSV file
+df.to_csv(csv_output_path, index=False)
+
+# Collect metadata
+metadata_output_path = os.path.join(output_dir, "metadata.txt")
+
+with open(metadata_output_path, "w") as f:
+    f.write("--- DataFrame Info ---\n")
+    buffer = io.StringIO()
+    df.info(buf=buffer)
+    f.write(buffer.getvalue())
+    f.write("\n--- DataFrame Columns ---\n")
+    f.write(str(df.columns.tolist()))
+    f.write("\n\n--- DataFrame Head ---\n")
+    f.write(str(df.head().to_dict("records")))
+    f.write("\n\n--- JSON Answer Format ---\n")
+    f.write("{\n")
+    f.write('  "Which high court disposed the most cases from 2019 - 2022?": "...",\n')
+    f.write(
+        '  "What\'s the regression slope of the date_of_registration - decision_date by year in the court=33_10?": "...",\n'
+    )
+    f.write(
+        '  "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters": "data:image/webp:base64,..."\n'
+    )
+    f.write("}\n")
+
+print(f"Data saved to {csv_output_path}")
+print(f"Metadata saved to {metadata_output_path}")
+
+----------------------------------------
+
+[2025-08-13 09:09:52]
+❌ Error during code execution:
+Traceback (most recent call last):
+  File "/home/venisha/TDS_project2/task_engine.py", line 48, in run_python_code
+    execute_code()
+  File "/home/venisha/TDS_project2/task_engine.py", line 26, in execute_code
+    exec(code, exec_globals)
+  File "<string>", line 17, in <module>
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/io/parquet.py", line 653, in read_parquet
+    impl = get_engine(engine)
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/io/parquet.py", line 64, in get_engine
+    return engine_class()
+           ^^^^^^^^^^^^^^
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/io/parquet.py", line 170, in __init__
+    import pandas.core.arrays.arrow.extension_types  # pyright: ignore[reportUnusedImport] # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/venisha/TDS_project2/venv/lib/python3.12/site-packages/pandas/core/arrays/arrow/extension_types.py", line 59, in <module>
+    pyarrow.register_extension_type(_period_type)
+  File "pyarrow/types.pxi", line 2226, in pyarrow.lib.register_extension_type
+  File "pyarrow/error.pxi", line 92, in pyarrow.lib.check_status
+pyarrow.lib.ArrowKeyError: A type extension with name pandas.period already defined
+
+----------------------------------------
